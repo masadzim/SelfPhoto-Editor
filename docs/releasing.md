@@ -25,18 +25,30 @@ type and verification. Use GitHub Issues to report a bug or propose a feature.
    ```
 
 The tag must exactly match `[workspace.package] version` in `Cargo.toml`. Pushing a valid `v*`
-tag starts `.github/workflows/release.yml`. It reruns the workspace tests, builds the desktop app
-and CLI for Linux x86_64, and publishes a GitHub Release with generated notes, a tarball and
-`SHA256SUMS.txt`. Release notes are grouped using `.github/release.yml`. Tags containing a
-hyphen, such as `v0.8.0-rc.1`, are published as pre-releases.
+tag starts `.github/workflows/release.yml`. It verifies the version, then builds and packages on
+each platform's runner and publishes a GitHub Release with the installers attached:
 
-The current automated binary release targets Linux x86_64. Other platform packaging remains
-available in the repository but is not published by this fork's release workflow.
+- **Windows** (`windows-latest`): `photocraft-<version>-windows-x64.msi` (installs
+  `photocraft.exe`) and `photocraft-<version>-windows-x64-portable.zip`.
+- **macOS** (`macos-latest`): `photocraft-<version>-macos-universal.dmg` (Intel + Apple silicon)
+  and the `photocraft-cli` zip.
+- **Linux** (`ubuntu-22.04`): `selfphoto-editor-<version>-linux-x86_64.deb` (Debian, Ubuntu,
+  Mint, Pop!_OS, ...) and `selfphoto-editor-<version>-linux-x86_64.AppImage` (any distro).
+
+Release notes are grouped using `.github/release.yml`. Tags containing a hyphen, such as
+`v0.9.0-rc.1`, are published as pre-releases.
+
+Without signing secrets the Windows build is unsigned and the macOS build is ad-hoc signed
+(Gatekeeper rejects an ad-hoc build on other Macs); the packaging scripts warn and still produce
+installers. Add `WINDOWS_CERTIFICATE`/`WINDOWS_CERTIFICATE_PASSWORD` (or the `AZURE_*` Trusted
+Signing set), and/or `APPLE_CERTIFICATE`/`APPLE_CERTIFICATE_PASSWORD`/`KEYCHAIN_PASSWORD`/
+`APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID`, as repository secrets to sign and notarize.
 
 ## Verify or recover
 
-- Check **Actions → Release** and the GitHub Release page. A failed test, version mismatch,
-  build, or upload fails the workflow before publication.
-- Verify a downloaded archive with `sha256sum -c SHA256SUMS.txt`.
+- Check **Actions → Release** and the GitHub Release page. A failed version check, build or
+  upload fails the workflow before publication.
+- Compare a downloaded installer's checksum with the SHA-256 GitHub shows on the asset.
+- On Windows, the MSI installs `photocraft.exe`; the portable zip also ships `photocraft-cli.exe`.
 - Do not reuse or move a published version tag. Fix the issue, bump to the next patch version,
   and publish a new tag.

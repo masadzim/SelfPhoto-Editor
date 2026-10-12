@@ -1,5 +1,21 @@
 name: Release
 
+# Pushing a valid `v*` tag builds the desktop app for every platform and publishes a GitHub
+# Release with the installers attached:
+#   Windows  photocraft-<version>-windows-x64.msi            installer (installs photocraft.exe)
+#            photocraft-<version>-windows-x64-portable.zip   photocraft.exe + photocraft-cli.exe
+#   macOS    photocraft-<version>-macos-universal.dmg        SelfPhoto Editor.app (Intel + Apple silicon)
+#   Linux    selfphoto-editor-<version>-linux-<arch>.deb
+#            selfphoto-editor-<version>-linux-<arch>.AppImage
+#
+# The tag must exactly match `[workspace.package] version` in Cargo.toml. Tags containing a hyphen,
+# such as v0.9.0-rc.1, are published as pre-releases.
+#
+# Without signing secrets the Windows build is unsigned and the macOS build is ad-hoc signed; the
+# packaging scripts warn and still produce installers. Add the secrets (WINDOWS_CERTIFICATE/
+# WINDOWS_CERTIFICATE_PASSWORD or the AZURE_* set; APPLE_CERTIFICATE/APPLE_CERTIFICATE_PASSWORD/
+# KEYCHAIN_PASSWORD/APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID) to sign and notarize.
+
 on:
   push:
     tags:
@@ -13,13 +29,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Test, build, and publish Linux release
+  verify:
+    name: Verify tag matches workspace version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Verify tag matches workspace version
+      - name: Verify
         shell: bash
         run: |
           version="$(awk '
@@ -31,59 +46,161 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME must match workspace version v$version"
             exit 1
           fi
+          echo "Releasing $GITHUB_REF_NAME (workspace version $version)."
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Check out craft-fonts
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
+  linux:
+    name: Linux (.deb, .AppImage)
+    needs: verify
+    # Build on Ubuntu 22.04 (glibc 2.35) so the binaries run on newer distros.
+    runs-on: ubuntu-22.04
+    env:
+      PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Install Linux system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
-            libgl1-mesa-dev libgtk-3-dev
+            libgl1-mesa-dev libgtk-3-dev zsync
 
-      - name: Test workspace
-        run: cargo test --workspace --locked --features heif
-
-      - name: Build release binaries
-        env:
-          PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
-          CRAFT_FONTS_REQUIRED: "1"
+      - name: Install nfpm (SHA256-verified)
         run: |
-          export PHOTOCRAFT_BUILD_DATE="$(date -u +%F)"
-          cargo build -p photocraft --locked --release --features heif
-          cargo build -p photocraft-cli --locked --release --features heif
+          curl -fsSL -o /tmp/nfpm.deb \
+            https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_amd64.deb
+          echo "3f1cf344bd0b57373ca55636a78c08b0491f7293d609a456a9ac3b0b150fda97  /tmp/nfpm.deb" \
+            | sha256sum -c -
+          sudo dpkg -i /tmp/nfpm.deb
 
-      - name: Package and checksum
-        shell: bash
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-linux-x86_64
+
+      - name: Build and package (.deb, .AppImage)
+        run: packaging/linux/package.sh --formats "deb appimage"
+
+      - name: Check the packages
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          package="SelfPhoto-Editor-$version-linux-x86_64"
-          mkdir -p "dist/$package"
-          install -m 0755 target/release/photocraft "dist/$package/selfphoto-editor"
-          install -m 0755 target/release/photocraft-cli "dist/$package/selfphoto-editor-cli"
-          cp README.md LICENSE-MIT LICENSE-APACHE "dist/$package/"
-          for license in craft-fonts/fonts/*/OFL.txt; do
-            [[ -f "$license" ]] || continue
-            family="$(basename "$(dirname "$license")")"
-            cp "$license" "dist/$package/OFL-$family.txt"
+          for deb in dist/release/*.deb; do
+            dpkg-deb --info "$deb"
+            dpkg-deb --contents "$deb" | grep -E 'usr/bin/(photocraft|photocraft-cli)|applications|metainfo'
           done
-          (cd dist && tar -czf "$package.tar.gz" "$package")
-          (cd dist && sha256sum "$package.tar.gz" > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+          for appimage in dist/release/*.AppImage; do
+            chmod +x "$appimage"
+            timeout 60 env APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version || true
+          done
 
-      - name: Publish GitHub Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: dist/release/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows (.msi, .exe)
+    needs: verify
+    runs-on: windows-latest
+    env:
+      PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-windows-x64
+
+      - name: Install WiX v5
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$env:USERPROFILE\.dotnet\tools\wix.exe" extension add -g WixToolset.UI.wixext/5.0.2
+          & "$env:USERPROFILE\.dotnet\tools\wix.exe" extension add -g WixToolset.Util.wixext/5.0.2
+
+      - name: Build, sign and package (.msi, portable .zip)
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
+        run: ./packaging/windows/package.ps1 -Arch x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: dist/release/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS (.dmg)
+    needs: verify
+    runs-on: macos-latest
+    env:
+      PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-macos-universal
+
+      - name: Import signing certificate (no-op without secrets)
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: packaging/macos/import-cert.sh
+
+      - name: Build, sign and package (.dmg)
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: packaging/macos/package.sh --arch universal
+
+      - name: Clean up the temporary keychain
+        if: always()
+        run: |
+          if [ -n "${MACOS_KEYCHAIN:-}" ]; then security delete-keychain "$MACOS_KEYCHAIN" || true; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-universal
+          path: dist/release/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [verify, linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List release assets
+        run: find artifacts -type f | sort
+
+      - name: Publish
         uses: softprops/action-gh-release@v2
         with:
           name: SelfPhoto Editor ${{ github.ref_name }}
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: |
-            dist/*.tar.gz
-            dist/SHA256SUMS.txt
+          files: artifacts/**/*
