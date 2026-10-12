@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible problem in SelfPhoto Editor.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the expected behavior and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open an image…"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SelfPhoto Editor version and operating system
+      placeholder: "v0.7.0, Ubuntu 24.04"
+    validations:
+      required: true

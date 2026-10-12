@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Test, build, and publish Linux release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches workspace version
+        shell: bash
+        run: |
+          version="$(awk '
+            /^\[workspace.package\]/ { in_package = 1; next }
+            /^\[/ { in_package = 0 }
+            in_package && /^version = / { gsub(/[" ]/, "", $3); print $3; exit }
+          ' Cargo.toml)"
+          if [[ -z "$version" || "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME must match workspace version v$version"
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check out craft-fonts
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: storytold/craft-fonts
+          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
+          path: craft-fonts
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
+            libgl1-mesa-dev libgtk-3-dev
+
+      - name: Test workspace
+        run: cargo test --workspace --locked --features heif
+
+      - name: Build release binaries
+        env:
+          PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_REQUIRED: "1"
+        run: |
+          export PHOTOCRAFT_BUILD_DATE="$(date -u +%F)"
+          cargo build -p photocraft --locked --release --features heif
+          cargo build -p photocraft-cli --locked --release --features heif
+
+      - name: Package and checksum
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          package="SelfPhoto-Editor-$version-linux-x86_64"
+          mkdir -p "dist/$package"
+          install -m 0755 target/release/photocraft "dist/$package/selfphoto-editor"
+          install -m 0755 target/release/photocraft-cli "dist/$package/selfphoto-editor-cli"
+          cp README.md LICENSE-MIT LICENSE-APACHE "dist/$package/"
+          for license in craft-fonts/fonts/*/OFL.txt; do
+            [[ -f "$license" ]] || continue
+            family="$(basename "$(dirname "$license")")"
+            cp "$license" "dist/$package/OFL-$family.txt"
+          done
+          (cd dist && tar -czf "$package.tar.gz" "$package")
+          (cd dist && sha256sum "$package.tar.gz" > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SelfPhoto Editor ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
