@@ -14,7 +14,7 @@ section: graphics
 priority: optional
 maintainer: ${PHOTOCRAFT_MAINTAINER}
 vendor: SelfPhoto Editor contributors
-homepage: https://github.com/masadzim/SelftPhoto-Editor
+homepage: https://github.com/masadzim/SelfPhoto-Editor
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native image editor with familiar, professional tools.

@@ -18,9 +18,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/masadzim/SelftPhoto-Editor"><b>SelfPhoto Editor on GitHub</b></a> ·
-  <a href="https://github.com/masadzim/SelftPhoto-Editor/releases">Releases</a> ·
-  <a href="https://github.com/masadzim/SelftPhoto-Editor/issues">Issues</a>
+  <a href="https://github.com/masadzim/SelfPhoto-Editor"><b>SelfPhoto Editor on GitHub</b></a> ·
+  <a href="https://github.com/masadzim/SelfPhoto-Editor/releases">Releases</a> ·
+  <a href="https://github.com/masadzim/SelfPhoto-Editor/issues">Issues</a>
 </p>
 
 <br>
@@ -41,7 +41,7 @@
   <a href="#get-started">Get started</a> ·
   <a href="#downloads">Downloads</a> ·
   <a href="#license-and-credits">License and credits</a> ·
-  <a href="https://github.com/masadzim/SelftPhoto-Editor/issues">Report an issue</a>
+  <a href="https://github.com/masadzim/SelfPhoto-Editor/issues">Report an issue</a>
 </p>
 
 <br>
@@ -240,7 +240,7 @@ The desktop app also offers an authenticated, loopback-only control channel (`ph
 ## Get started
 
 ```sh
-git clone https://github.com/masadzim/SelftPhoto-Editor SelfPhoto-Editor
+git clone https://github.com/masadzim/SelfPhoto-Editor SelfPhoto-Editor
 cd SelfPhoto-Editor
 cargo run --release -p photocraft -- image.psd   # the desktop app
 cargo test --workspace                           # the test suite
@@ -255,7 +255,7 @@ CRAFT_FONTS_DIR="$PWD/../craft-fonts" cargo run --release -p photocraft
 
 New contributors and AI agents: start with [`AGENTS.md`](AGENTS.md), then [`docs/`](docs/).
 
-The current automated release publishes a Linux x86_64 tarball from [GitHub Releases](https://github.com/masadzim/SelftPhoto-Editor/releases). It contains the desktop app, CLI, licenses and a SHA-256 checksum. Other platforms can be built from source; their packages are not published by this fork yet.
+The current automated release publishes a Linux x86_64 tarball from [GitHub Releases](https://github.com/masadzim/SelfPhoto-Editor/releases). It contains the desktop app, CLI, licenses and a SHA-256 checksum. Other platforms can be built from source; their packages are not published by this fork yet.
 
 > [!IMPORTANT]
 > **Status:** SelfPhoto Editor is in early alpha, and we want to be straight about where it stands: much of Photoshop's feature surface exists in some form, but **it is not yet a Photoshop replacement for daily professional work**. The biggest gaps are AI/generative features, 15 missing tools, depth in typography and pro workflows, and plug-in compatibility. Every Photoshop menu item is wired to a command ([`docs/parity-checklist.md`](docs/parity-checklist.md)), but that measures wiring, not behaviour. The honest, dimension-by-dimension picture and where we're going next are in the [roadmap](ROADMAP.md) and [parity assessment](docs/target-app-parity.md). Expect rough edges, and please file issues (include your OS, document size, layer count and a screenshot).
@@ -279,7 +279,7 @@ sha256-verified. Fetch them with `cargo xtask corpus --all` and run the tests wi
 
 ## Downloads
 
-Download the current Linux x86_64 build from [GitHub Releases](https://github.com/masadzim/SelftPhoto-Editor/releases).
+Download the current Linux x86_64 build from [GitHub Releases](https://github.com/masadzim/SelfPhoto-Editor/releases).
 Each release includes the app, CLI, licenses and `SHA256SUMS.txt`. The release process is described
 in [`docs/releasing.md`](docs/releasing.md). Builds for other platforms can be produced from source.
 
@@ -303,4 +303,4 @@ endorsed by Adobe Inc.</sub>
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=masadzim/SelftPhoto-Editor&type=Date&legend=top-left)](https://www.star-history.com/?repos=masadzim%2FSelftPhoto-Editor&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=masadzim/SelfPhoto-Editor&type=Date&legend=top-left)](https://www.star-history.com/?repos=masadzim%2FSelfPhoto-Editor&type=date&legend=top-left)

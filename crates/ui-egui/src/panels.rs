@@ -588,7 +588,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         ("Pixel Art".to_string(), tl!("Pixel Art")),
                         ("Motion".to_string(), tl!("Motion")),
                     ];
-                    // A narrow bar drops what is also in a menu, Discord first (below), then
+                    // A narrow bar drops what is also in a menu, the project link first (below), then
                     // the theme toggle (Preferences), then search (Edit › Search), and narrows
                     // the switcher (Window › Workspace) before anything runs over.
                     let room = ui.available_width();

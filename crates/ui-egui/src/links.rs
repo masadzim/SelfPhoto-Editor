@@ -4,10 +4,10 @@ use serde_json::{Value, json};
 
 use crate::PhotocraftApp;
 
-pub const PROJECT: &str = "https://github.com/masadzim/SelftPhoto-Editor";
-pub const RELEASES: &str = "https://github.com/masadzim/SelftPhoto-Editor/releases";
+pub const PROJECT: &str = "https://github.com/masadzim/SelfPhoto-Editor";
+pub const RELEASES: &str = "https://github.com/masadzim/SelfPhoto-Editor/releases";
 pub const GITHUB: &str = PROJECT;
-pub const ISSUES: &str = "https://github.com/masadzim/SelftPhoto-Editor/issues";
+pub const ISSUES: &str = "https://github.com/masadzim/SelfPhoto-Editor/issues";
 
 /// Help-menu link commands: (id, url). Labels live in `menus::UI_COMMANDS`.
 pub const COMMANDS: &[(&str, &str)] = &[("help.website", RELEASES), ("help.github", GITHUB), ("help.reportIssue", ISSUES)];
@@ -70,7 +70,7 @@ mod tests {
 
     #[test]
     fn links_open_through_the_platform_service() {
-        // Issue #14: links (Help menu, Discord button, start-page links) must open in the browser.
+        // Issue #14: links (Help menu, project button, start-page links) must open in the browser.
         // They route through the `open_url` service rather than the unreliable `ctx.open_url`.
         use std::sync::{Arc, Mutex};
         let opened: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
@@ -89,7 +89,7 @@ mod tests {
             crate::menus::invoke(&mut app, &ctx, id, json!({})).unwrap();
             assert_eq!(opened.lock().unwrap().last().map(String::as_str), Some(*url), "{id}");
         }
-        // The direct open() helper (Discord button / start-page links) also uses it.
+        // The direct open() helper (project button / start-page links) also uses it.
         open(&mut app, &ctx, PROJECT);
         assert_eq!(opened.lock().unwrap().last().map(String::as_str), Some(PROJECT));
     }
@@ -109,9 +109,9 @@ mod tests {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         let ctx = egui::Context::default();
         for (id, url) in [
-            ("help.website", "https://github.com/masadzim/SelftPhoto-Editor/releases"),
-            ("help.github", "https://github.com/masadzim/SelftPhoto-Editor"),
-            ("help.reportIssue", "https://github.com/masadzim/SelftPhoto-Editor/issues"),
+            ("help.website", "https://github.com/masadzim/SelfPhoto-Editor/releases"),
+            ("help.github", "https://github.com/masadzim/SelfPhoto-Editor"),
+            ("help.reportIssue", "https://github.com/masadzim/SelfPhoto-Editor/issues"),
         ] {
             let r = crate::menus::invoke(&mut app, &ctx, id, serde_json::json!({})).unwrap();
             assert_eq!(r["url"], url);

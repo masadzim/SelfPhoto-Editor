@@ -309,9 +309,9 @@ mod tests {
             for a in &widgets {
                 assert!(a.right() <= min.left(), "{a:?} runs into the caption buttons at {width}");
             }
-            // Wide windows show the whole group; the narrowest drops Discord (also Help › Discord).
-            let has_discord = texts(&out).iter().any(|(t, _)| t == "Discord");
-            assert_eq!(has_discord, width > 1000.0, "Discord at {width}");
+            // Wide windows show the whole group; the narrowest drops the GitHub link (also Help › GitHub).
+            let has_github = texts(&out).iter().any(|(t, _)| t == "GitHub");
+            assert_eq!(has_github, width > 1000.0, "GitHub at {width}");
         }
     }
 
