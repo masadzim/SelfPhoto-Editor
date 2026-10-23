@@ -817,7 +817,11 @@ pub fn run(root: &Path, rest: &[&str]) -> Result<(), String> {
         }
         if !retry_plan.is_empty() {
             let names: Vec<&str> = retry_plan.iter().map(|(b, _)| b.name.as_str()).collect();
-            println!("note: {} scenario(s) failed; re-running bench(es) {} once and using the retry results", outcomes.iter().filter(|oc| oc.status.fails()).count(), names.join(", "));
+            println!(
+                "note: {} scenario(s) failed; re-running bench(es) {} once and using the retry results",
+                outcomes.iter().filter(|oc| oc.status.fails()).count(),
+                names.join(", ")
+            );
             for (b, args) in retry_plan {
                 let (parsed, mut meta) = run_one(b, args)?;
                 if let Some(obj) = meta.as_object_mut() {
