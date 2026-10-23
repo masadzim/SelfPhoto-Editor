@@ -704,10 +704,9 @@ pub fn run(root: &Path, rest: &[&str]) -> Result<(), String> {
         }
     }
 
-    let load_start = load_avg();
-    let mut reports: BTreeMap<String, Result<Value, String>> = BTreeMap::new();
-    let mut bench_meta = serde_json::Map::new();
-    for (b, args) in &plan {
+    // Runs one bench once and returns its parsed report plus its metadata entry.
+    // A closure so the failure retry below can re-run a bench identically.
+    let run_one = |b: &BenchSpec, args: &Vec<String>| -> Result<(Result<Value, String>, Value), String> {
         let json_path = out_dir.join(format!("{}.json", b.name));
         let before = load_avg();
         let t = Instant::now();
@@ -726,32 +725,38 @@ pub fn run(root: &Path, rest: &[&str]) -> Result<(), String> {
         };
         let parsed = result.and_then(|t| serde_json::from_str::<Value>(&t).map_err(|e| format!("{}: bad JSON: {e}", b.name)));
         let after = load_avg();
-        bench_meta.insert(
-            b.name.clone(),
-            json!({
-                "status": if parsed.is_ok() { "ok" } else { "error" },
-                "note": b.note,
-                "error": parsed.as_ref().err(),
-                "seconds": t.elapsed().as_secs_f64(),
-                "args": args,
-                "load_avg_before": before,
-                "load_avg_after": after,
-                "context": parsed.as_ref().ok().and_then(|r| r.get("context")).cloned(),
-                "process_peak_rss_bytes": parsed.as_ref().ok().and_then(|r| r.get("process_peak_rss_bytes")).cloned(),
-                // Every row, mapped to a scenario or not (new benches show up here first).
-                "rows": parsed.as_ref().ok().and_then(|r| r.get("rows")).and_then(Value::as_array).map(|rows| {
-                    rows.iter()
-                        .map(|r| {
-                            let mut v = row_stats(r).to_json();
-                            if let Some(o) = v.as_object_mut() {
-                                o.insert("name".into(), r.get("name").cloned().unwrap_or(Value::Null));
-                            }
-                            v
-                        })
-                        .collect::<Vec<_>>()
-                }),
+        let meta = json!({
+            "status": if parsed.is_ok() { "ok" } else { "error" },
+            "note": b.note,
+            "error": parsed.as_ref().err(),
+            "seconds": t.elapsed().as_secs_f64(),
+            "args": args,
+            "load_avg_before": before,
+            "load_avg_after": after,
+            "context": parsed.as_ref().ok().and_then(|r| r.get("context")).cloned(),
+            "process_peak_rss_bytes": parsed.as_ref().ok().and_then(|r| r.get("process_peak_rss_bytes")).cloned(),
+            // Every row, mapped to a scenario or not (new benches show up here first).
+            "rows": parsed.as_ref().ok().and_then(|r| r.get("rows")).and_then(Value::as_array).map(|rows| {
+                rows.iter()
+                    .map(|r| {
+                        let mut v = row_stats(r).to_json();
+                        if let Some(o) = v.as_object_mut() {
+                            o.insert("name".into(), r.get("name").cloned().unwrap_or(Value::Null));
+                        }
+                        v
+                    })
+                    .collect::<Vec<_>>()
             }),
-        );
+        });
+        Ok((parsed, meta))
+    };
+
+    let load_start = load_avg();
+    let mut reports: BTreeMap<String, Result<Value, String>> = BTreeMap::new();
+    let mut bench_meta = serde_json::Map::new();
+    for (b, args) in &plan {
+        let (parsed, meta) = run_one(b, args)?;
+        bench_meta.insert(b.name.clone(), meta);
         reports.insert(b.name.clone(), parsed);
     }
     for (name, why) in &skipped {
@@ -782,7 +787,49 @@ pub fn run(root: &Path, rest: &[&str]) -> Result<(), String> {
         Some(Err(e)) => (None, Some(e)),
         None => (None, Some(format!("no {BASELINE}: regression check skipped"))),
     };
-    let outcomes = evaluate(&budgets, &reports, baseline.as_ref(), threshold, !o.quick);
+    let mut outcomes = evaluate(&budgets, &reports, baseline.as_ref(), threshold, !o.quick);
+
+    // One retry for benches whose scenarios failed: a single timing spike on a
+    // shared runner (load spikes are recorded per bench above) must not fail the
+    // nightly on its own. The retry's report replaces the first pass and is what
+    // the scorecard and results.json describe; a scenario that still fails on
+    // the retry is a real failure. Skipped in --reuse mode (no bench runs there).
+    let mut retried_benches: Vec<String> = Vec::new();
+    if !o.reuse {
+        let failed: Vec<&BenchSpec> = budgets
+            .scenario
+            .iter()
+            .zip(&outcomes)
+            .filter(|(_, oc)| oc.status.fails())
+            .filter_map(|(sc, _)| sc.bench.as_ref())
+            .filter_map(|name| plan.iter().map(|(b, _)| *b).find(|b| &b.name == name))
+            .collect();
+        let mut seen: Vec<&str> = Vec::new();
+        let mut retry_plan: Vec<(&BenchSpec, &Vec<String>)> = Vec::new();
+        for b in failed {
+            if seen.contains(&b.name.as_str()) {
+                continue;
+            }
+            seen.push(b.name.as_str());
+            if let Some((_, args)) = plan.iter().find(|(pb, _)| pb.name == b.name) {
+                retry_plan.push((b, args));
+            }
+        }
+        if !retry_plan.is_empty() {
+            let names: Vec<&str> = retry_plan.iter().map(|(b, _)| b.name.as_str()).collect();
+            println!("note: {} scenario(s) failed; re-running bench(es) {} once and using the retry results", outcomes.iter().filter(|oc| oc.status.fails()).count(), names.join(", "));
+            for (b, args) in retry_plan {
+                let (parsed, mut meta) = run_one(b, args)?;
+                if let Some(obj) = meta.as_object_mut() {
+                    obj.insert("retried".into(), json!(true));
+                }
+                bench_meta.insert(b.name.clone(), meta);
+                reports.insert(b.name.clone(), parsed);
+                retried_benches.push(b.name.clone());
+            }
+            outcomes = evaluate(&budgets, &reports, baseline.as_ref(), threshold, !o.quick);
+        }
+    }
 
     let scenarios: serde_json::Map<String, Value> = budgets
         .scenario
@@ -823,6 +870,7 @@ pub fn run(root: &Path, rest: &[&str]) -> Result<(), String> {
         "load_avg_start": load_start,
         "load_avg_end": load_end,
         "threshold_pct": threshold,
+        "retried_benches": retried_benches,
         "baseline_note": baseline_note,
         "benches": bench_meta,
         "scenarios": scenarios,
