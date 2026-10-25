@@ -30,7 +30,7 @@ The release packages ship `photocraft-cli` alongside the desktop app, so no buil
 |---|---|
 | Windows (MSI) | `C:\Program Files\PhotoCraft\photocraft-cli.exe` by default (wherever you installed it otherwise), not on `PATH` |
 | Linux (deb, rpm) | `/usr/bin/photocraft-cli` |
-| macOS | the separate `photocraft-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
+| macOS | the separate `selfphoto-editor-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
 
 ```sh
 # Windows, default install folder
