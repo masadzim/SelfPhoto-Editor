@@ -2,9 +2,9 @@ name: Release
 
 # Pushing a valid `v*` tag builds the desktop app for every platform and publishes a GitHub
 # Release with the installers attached:
-#   Windows  photocraft-<version>-windows-x64.msi            installer (installs photocraft.exe)
-#            photocraft-<version>-windows-x64-portable.zip   photocraft.exe + photocraft-cli.exe
-#   macOS    photocraft-<version>-macos-universal.dmg        SelfPhoto Editor.app (Intel + Apple silicon)
+#   Windows  selfphoto-editor-<version>-windows-x64.msi            installer (installs photocraft.exe)
+#            selfphoto-editor-<version>-windows-x64-portable.zip   photocraft.exe + photocraft-cli.exe
+#   macOS    selfphoto-editor-<version>-macos-universal.dmg        SelfPhoto Editor.app (Intel + Apple silicon)
 #   Linux    selfphoto-editor-<version>-linux-<arch>.deb
 #            selfphoto-editor-<version>-linux-<arch>.AppImage
 #

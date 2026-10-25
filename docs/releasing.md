@@ -28,10 +28,10 @@ The tag must exactly match `[workspace.package] version` in `Cargo.toml`. Pushin
 tag starts `.github/workflows/release.yml`. It verifies the version, then builds and packages on
 each platform's runner and publishes a GitHub Release with the installers attached:
 
-- **Windows** (`windows-latest`): `photocraft-<version>-windows-x64.msi` (installs
-  `photocraft.exe`) and `photocraft-<version>-windows-x64-portable.zip`.
-- **macOS** (`macos-latest`): `photocraft-<version>-macos-universal.dmg` (Intel + Apple silicon)
-  and the `photocraft-cli` zip.
+- **Windows** (`windows-latest`): `selfphoto-editor-<version>-windows-x64.msi` (installs
+  `photocraft.exe`) and `selfphoto-editor-<version>-windows-x64-portable.zip`.
+- **macOS** (`macos-latest`): `selfphoto-editor-<version>-macos-universal.dmg` (Intel + Apple silicon)
+  and the `selfphoto-editor-cli` zip.
 - **Linux** (`ubuntu-22.04`): `selfphoto-editor-<version>-linux-x86_64.deb` (Debian, Ubuntu,
   Mint, Pop!_OS, ...) and `selfphoto-editor-<version>-linux-x86_64.AppImage` (any distro).
 
