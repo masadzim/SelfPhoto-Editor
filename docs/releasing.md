@@ -28,10 +28,10 @@ The tag must exactly match `[workspace.package] version` in `Cargo.toml`. Pushin
 tag starts `.github/workflows/release.yml`. It verifies the version, then builds and packages on
 each platform's runner and publishes a GitHub Release with the installers attached:
 
-- **Windows** (`windows-latest`): `photocraft-<version>-windows-x64.msi` (installs
-  `photocraft.exe`) and `photocraft-<version>-windows-x64-portable.zip`.
-- **macOS** (`macos-latest`): `photocraft-<version>-macos-universal.dmg` (Intel + Apple silicon)
-  and the `photocraft-cli` zip.
+- **Windows** (`windows-latest`): `selfphoto-editor-<version>-windows-x64.msi` (installs
+  `photocraft.exe`) and `selfphoto-editor-<version>-windows-x64-portable.zip`.
+- **macOS** (`macos-latest`): `selfphoto-editor-<version>-macos-universal.dmg` (Intel + Apple silicon)
+  and the `selfphoto-editor-cli` zip.
 - **Linux** (`ubuntu-22.04`): `selfphoto-editor-<version>-linux-x86_64.deb` (Debian, Ubuntu,
   Mint, Pop!_OS, ...) and `selfphoto-editor-<version>-linux-x86_64.AppImage` (any distro).
 
@@ -43,6 +43,22 @@ Without signing secrets the Windows build is unsigned and the macOS build is ad-
 installers. Add `WINDOWS_CERTIFICATE`/`WINDOWS_CERTIFICATE_PASSWORD` (or the `AZURE_*` Trusted
 Signing set), and/or `APPLE_CERTIFICATE`/`APPLE_CERTIFICATE_PASSWORD`/`KEYCHAIN_PASSWORD`/
 `APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID`, as repository secrets to sign and notarize.
+
+## In-app update checks
+
+The native desktop app checks the public GitHub latest-release endpoint in a background
+thread once at launch, with no periodic checks or automatic retries. Preferences › General › Automatically
+Check for Updates disables the startup check; Help › Check for Updates runs one manually.
+Checks use a 15-second timeout and a 1 MiB response limit, need no GitHub token, and send
+no document or personal data. Network failures are quiet during automatic checks and visible
+in the manual check window. Concurrent requests share one check.
+HTTPS validates certificates and host names against the operating system's trust store.
+
+Tags must be semantic versions (`v0.8.0` or `0.8.0`); only published stable versions newer
+than the installed workspace version trigger a notice. The notice opens the official release
+page to choose an installer; installation remains a user action. Drafts and prereleases do
+not trigger it. Web/headless frontends have no update transport. No release-workflow changes
+are required: publishing a newer stable GitHub Release makes it discoverable.
 
 ## Verify or recover
 
