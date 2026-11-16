@@ -33,7 +33,7 @@ jobs:
     name: Verify tag matches workspace version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify
         shell: bash
         run: |
@@ -56,7 +56,7 @@ jobs:
     env:
       PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Linux system dependencies
         run: |
@@ -93,7 +93,7 @@ jobs:
             timeout 60 env APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version || true
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-linux-x86_64
           path: dist/release/*
@@ -106,7 +106,7 @@ jobs:
     env:
       PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -137,7 +137,7 @@ jobs:
           AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
         run: ./packaging/windows/package.ps1 -Arch x64
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-windows-x64
           path: dist/release/*
@@ -150,7 +150,7 @@ jobs:
     env:
       PHOTOCRAFT_BUILD_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -179,7 +179,7 @@ jobs:
         run: |
           if [ -n "${MACOS_KEYCHAIN:-}" ]; then security delete-keychain "$MACOS_KEYCHAIN" || true; fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-macos-universal
           path: dist/release/*
@@ -190,7 +190,7 @@ jobs:
     needs: [verify, linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -198,7 +198,7 @@ jobs:
         run: find artifacts -type f | sort
 
       - name: Publish
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: SelfPhoto Editor ${{ github.ref_name }}
           generate_release_notes: true
